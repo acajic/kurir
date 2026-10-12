@@ -1,0 +1,214 @@
+<title>Fetch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/*LEAFLET_CSS*/
+</style>
+<style>
+/* Layout: paste bar across the top, drive list on the left, schematic Zagreb map filling the rest. */
+:root {
+  --paper: #F1F1EC; --panel: #FFFFFF; --ink: #1B2127; --muted: #5C6670; --line: #DADDD6; --soft: #ECEEE8;
+  --land: #E7E5DC; --water: #B4CFE0; --park: #D3E1C6; --road: #FFFFFF; --casing: #C9C4B6; --label: #6E6A5E;
+  --accent: #1F4FD1; --accent-ink: #FFFFFF; --accent-soft: #E3EAFB; --start: #D9930B; --danger: #B42318; --ok: #2F7A3B;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #111418; --panel: #181D23; --ink: #E5E8EB; --muted: #96A0AA; --line: #29313A; --soft: #1F252C;
+  --land: #1A1F25; --water: #1C3446; --park: #1D2A20; --road: #3A434D; --casing: #262D35; --label: #8C949C;
+  --accent: #6E9BFF; --accent-ink: #0B1220; --accent-soft: #1D2A47; --start: #F0B13A; --danger: #F07A6E; --ok: #7BC387;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #111418; --panel: #181D23; --ink: #E5E8EB; --muted: #96A0AA; --line: #29313A; --soft: #1F252C;
+  --land: #1A1F25; --water: #1C3446; --park: #1D2A20; --road: #3A434D; --casing: #262D35; --label: #8C949C;
+  --accent: #6E9BFF; --accent-ink: #0B1220; --accent-soft: #1D2A47; --start: #F0B13A; --danger: #F07A6E; --ok: #7BC387;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { height: 100%; display: grid; grid-template-rows: auto auto 1fr; }
+header.top { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: 0.02em; display: flex; align-items: center; gap: 8px; }
+.brand-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: grid; place-items: center; }
+.brand-mark svg { width: 16px; height: 16px; }
+.brand small { font-family: var(--font-body); font-weight: 500; font-size: 13px; color: var(--muted); letter-spacing: 0; }
+.me { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+.me strong { color: var(--ink); font-weight: 600; }
+.linkbtn { background: none; border: 0; padding: 2px 4px; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+.paste { background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 16px; }
+.paste-row { display: flex; gap: 8px; align-items: center; }
+.paste-input { flex: 1; min-width: 0; height: 44px; border: 1.5px solid var(--line); border-radius: var(--r); padding: 0 14px; background: var(--paper); font-size: 15px; }
+.paste-input:focus { border-color: var(--accent); outline: none; }
+.paste-input::placeholder { color: var(--muted); }
+.composer { margin-top: 12px; display: grid; gap: 12px; max-width: 980px; }
+.notice { font-size: 14px; padding: 10px 12px; border-radius: 8px; background: var(--soft); color: var(--ink); border: 1px solid var(--line); }
+.notice.warn { border-color: var(--start); }
+.notice.err { border-color: var(--danger); }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field label, .eyebrow { font-family: var(--font-display); font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.field input, .field textarea { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--panel); min-width: 0; }
+.field textarea { resize: vertical; min-height: 44px; }
+.field .pin-row { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.chipbtn { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+.chipbtn.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.when { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--paper); }
+.when-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.when-big { font-family: var(--font-mono); font-weight: 600; font-size: 20px; }
+.when-sub { color: var(--muted); font-size: 14px; }
+.tag { font-family: var(--font-display); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 7px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); }
+.tag.amber { background: transparent; color: var(--start); border: 1px solid var(--start); }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+.exact { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.exact input { border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; background: var(--panel); }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn { height: 40px; padding: 0 18px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); font-weight: 600; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.hint { font-size: 13px; color: var(--muted); }
+
+main.body { min-height: 0; display: grid; grid-template-columns: minmax(300px, 400px) 1fr; }
+aside.side { min-height: 0; display: grid; grid-template-rows: auto auto 1fr; border-right: 1px solid var(--line); background: var(--panel); }
+.search { padding: 12px 16px 8px; }
+.search input { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; background: var(--paper); }
+.days { display: flex; align-items: stretch; gap: 4px; padding: 4px 12px 10px; border-bottom: 1px solid var(--line); }
+.days .nav { border: 0; background: none; color: var(--muted); padding: 0 4px; font-size: 18px; }
+.day-strip { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; min-width: 0; }
+.day { border: 1px solid transparent; background: none; border-radius: 8px; padding: 4px 0 5px; display: grid; justify-items: center; gap: 0; line-height: 1.15; min-width: 0; }
+.day .dw { font-family: var(--font-display); font-weight: 600; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.day .dn { font-family: var(--font-mono); font-weight: 600; font-size: 15px; }
+.day .dc { font-size: 11px; color: var(--muted); height: 13px; font-variant-numeric: tabular-nums; }
+.day.today .dw { color: var(--accent); }
+.day.sel { background: var(--accent); border-color: var(--accent); }
+.day.sel .dw, .day.sel .dn, .day.sel .dc { color: var(--accent-ink); }
+.day.inrange { background: var(--accent-soft); }
+.range-row { display: flex; gap: 6px; padding: 0 16px 10px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.list { overflow-y: auto; min-height: 0; padding: 4px 0 24px; }
+.group-h { position: sticky; top: 0; background: var(--panel); padding: 10px 16px 6px; font-family: var(--font-display); font-weight: 600; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); z-index: 1; }
+.drive { display: grid; grid-template-columns: 62px 1fr; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.drive:hover { background: var(--soft); }
+.drive.sel { background: var(--accent-soft); }
+.drive.past .t, .drive.past .route { opacity: 0.55; }
+.t { font-family: var(--font-mono); font-weight: 600; font-size: 17px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.t small { display: block; font-family: var(--font-display); font-weight: 600; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.route { min-width: 0; display: grid; gap: 2px; }
+.leg { display: grid; grid-template-columns: 12px 1fr; gap: 6px; align-items: baseline; min-width: 0; }
+.leg span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drive.sel .leg span:last-child { white-space: normal; }
+.dot { width: 9px; height: 9px; border-radius: 50%; border: 2.5px solid var(--start); display: inline-block; transform: translateY(1px); }
+.dot.end { border: 0; background: var(--accent); border-radius: 50% 50% 50% 0; transform: translateY(1px) rotate(-45deg); }
+.by { font-size: 13px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.by strong { color: var(--ink); font-weight: 600; }
+.comment { font-size: 14px; margin-top: 4px; padding-left: 10px; border-left: 2px solid var(--line); color: var(--ink); overflow-wrap: anywhere; }
+.detail { grid-column: 1 / -1; display: grid; gap: 10px; padding-top: 4px; cursor: default; }
+.detail .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.detail a.open { display: inline-flex; align-items: center; height: 34px; padding: 0 12px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font-weight: 600; text-decoration: none; font-size: 14px; }
+.small-btn { height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); font-size: 14px; }
+.small-btn.danger { color: var(--danger); border-color: var(--danger); }
+.replies { display: grid; gap: 6px; }
+.reply { font-size: 14px; overflow-wrap: anywhere; }
+.reply strong { font-weight: 600; }
+.reply time { color: var(--muted); font-size: 12px; margin-left: 4px; }
+.reply-form { display: flex; gap: 6px; }
+.reply-form input { flex: 1; min-width: 0; height: 34px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; background: var(--panel); }
+.empty { padding: 28px 20px; color: var(--muted); display: grid; gap: 6px; }
+.empty strong { color: var(--ink); font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+
+.mapwrap { position: relative; min-height: 0; }
+#map { position: absolute; inset: 0; }
+.leaflet-container { background: var(--land); font-family: var(--font-body); }
+.map-note { position: absolute; left: 10px; bottom: 10px; z-index: 500; font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 4px 8px; border-radius: 6px; max-width: calc(100% - 20px); }
+.pick-banner { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 600; background: var(--ink); color: var(--paper); padding: 6px 12px; border-radius: 999px; font-size: 14px; }
+.map-label { font-family: var(--font-display); font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--label); white-space: nowrap; text-align: center; pointer-events: none; }
+.map-label.big { font-size: 14px; color: var(--ink); opacity: 0.7; }
+.map-label.water { color: var(--water); filter: brightness(0.7); font-style: italic; text-transform: none; letter-spacing: 0.04em; }
+.pin { width: 22px; height: 22px; }
+.pin-end { width: 18px; height: 18px; background: var(--accent); border: 2px solid var(--panel); border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.leaflet-control-zoom a { background: var(--panel) !important; color: var(--ink) !important; border-color: var(--line) !important; }
+
+.gate { position: fixed; inset: 0; z-index: 2000; background: var(--paper); display: grid; place-items: center; padding: 16px; }
+.gate-card { width: 100%; max-width: 420px; display: grid; gap: 14px; }
+.gate h1 { font-family: var(--font-display); font-weight: 700; font-size: 34px; line-height: 1.05; margin: 0; text-wrap: balance; }
+.gate p { margin: 0; color: var(--muted); }
+.gate input { height: 48px; border: 1.5px solid var(--line); border-radius: var(--r); padding: 0 14px; font-size: 17px; background: var(--panel); }
+.gate input:focus { border-color: var(--accent); outline: none; }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 8px 14px; border-radius: 8px; z-index: 3000; font-size: 14px; }
+
+@media (max-width: 760px) {
+  html, body { height: auto; }
+  .app { height: auto; display: block; }
+  main.body { display: flex; flex-direction: column-reverse; }
+  .mapwrap { height: 46vh; min-height: 280px; }
+  aside.side { display: block; border-right: 0; }
+  .list { overflow: visible; }
+  .fields { grid-template-columns: 1fr; }
+  .brand small { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M2 11.5c2.5 0 3-7 6-7s3.5 7 6 7" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>
+      Fetch <small>Shared drives around Zagreb</small>
+    </div>
+    <div class="me" id="me" hidden>Driving as <strong id="me-name"></strong><button class="linkbtn" id="me-change" type="button">change</button></div>
+  </header>
+
+  <section class="paste">
+    <div class="paste-row">
+      <input class="paste-input" id="paste" type="url" inputmode="url" autocomplete="off" placeholder="Paste a Google Maps directions link (start, destination and time)" aria-label="Google Maps directions link">
+    </div>
+    <form class="composer" id="composer" hidden></form>
+  </section>
+
+  <main class="body">
+    <aside class="side">
+      <div class="search"><input id="search" type="search" placeholder="Search places, people, comments" aria-label="Search drives"></div>
+      <div>
+        <div class="days">
+          <button class="nav" id="prev-week" type="button" aria-label="Earlier days">‹</button>
+          <div class="day-strip" id="day-strip"></div>
+          <button class="nav" id="next-week" type="button" aria-label="Later days">›</button>
+        </div>
+        <div class="range-row" id="range-row"></div>
+      </div>
+      <div class="list" id="list"></div>
+    </aside>
+    <div class="mapwrap">
+      <div id="map" aria-label="Map of Zagreb with drives"></div>
+      <div class="pick-banner" id="pick-banner" hidden></div>
+      <div class="map-note">Schematic map of Zagreb. Open a drive for the exact route in Google Maps.</div>
+    </div>
+  </main>
+</div>
+
+<div class="gate" id="gate" hidden>
+  <form class="gate-card" id="gate-form">
+    <span class="eyebrow">Fetch · Zagreb</span>
+    <h1>What's your name?</h1>
+    <p>Everyone sees it next to the drives you share, so they know who to ask for a lift.</p>
+    <input id="gate-name" autocomplete="name" maxlength="40" placeholder="Your name" required>
+    <button class="btn primary" type="submit">Continue</button>
+  </form>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+/*PARSE_JS*/
+</script>
+<script>
+/*APP_JS*/
+</script>

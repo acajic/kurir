@@ -1,0 +1,24 @@
+# Fetch
+
+Share where and when you're driving. Paste a Google Maps directions link (start, destination, time), add a comment, and everyone sees the drive on a map, sorted by day.
+
+## Run
+
+- `npm start` runs it on port 8080. Needs Node 22.13+ and has no dependencies. Data lives in SQLite at `$DATA_DIR/fetch.db` (default `./data`).
+- Docker: `docker build -t fetch . && docker run -p 8080:8080 -v fetch-data:/data fetch`
+- Host it somewhere with a persistent disk (a Fly.io volume, a Render disk, any VPS). Serverless hosts like Vercel would lose the database.
+- Location and the "Zoom to my area" button need HTTPS.
+
+## Settings (environment variables)
+
+- `PORT` (default 8080), `DATA_DIR` (default `./data`)
+- `ROUTER_URL`: OSRM-compatible router used to draw the driving route (default: the public OSRM demo server, fine for light use).
+- `NOMINATIM_UA`: user agent for OpenStreetMap Nominatim lookups (municipality zoom). Their policy asks for a contact address in it.
+
+## Layout
+
+- `server.js`: API (drives, routes, short-link resolving, municipality lookup), live updates over server-sent events, static files.
+- `src/`: page sources shared by both versions. `parse.js` reads Google Maps directions links.
+- `python3 build.py` regenerates `public/index.html` (hosted app) and `artifact/fetch.html` (the claude.ai Artifact version with a schematic map). Edit `src/`, never the generated files.
+
+Google links carry the places and time but not the line Google drew, so the map shows the fastest driving route between the same points.

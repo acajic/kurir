@@ -1,0 +1,8 @@
+{
+  "name": "fetch-drives",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Share where and when you're driving. Paste a Google Maps directions link.",
+  "scripts": { "start": "node --no-warnings server.js", "build": "python3 build.py" },
+  "engines": { "node": ">=22.13" }
+}
