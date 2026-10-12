@@ -1,0 +1,15 @@
+# One-click deploy on Render: New > Blueprint > pick this repo.
+# A persistent disk keeps the SQLite database across deploys (needs a paid instance; free ones have no disk).
+services:
+  - type: web
+    name: fetch
+    runtime: docker
+    plan: starter
+    healthCheckPath: /
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NOMINATIM_UA
+        sync: false   # e.g. "fetch-drives/1.0 (you@example.com)"

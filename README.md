@@ -6,7 +6,8 @@ Share where and when you're driving. Paste a Google Maps directions link (start,
 
 - `npm start` runs it on port 8080. Needs Node 22.13+ and has no dependencies. Data lives in SQLite at `$DATA_DIR/fetch.db` (default `./data`).
 - Docker: `docker build -t fetch . && docker run -p 8080:8080 -v fetch-data:/data fetch`
-- Host it somewhere with a persistent disk (a Fly.io volume, a Render disk, any VPS). Serverless hosts like Vercel would lose the database.
+- Render: New → Blueprint → pick this repo; `render.yaml` sets up the service and its disk.
+- Or host it anywhere else with a persistent disk (a Fly.io volume, a Render disk, any VPS). Serverless hosts like Vercel would lose the database.
 - Location and the "Zoom to my area" button need HTTPS.
 
 ## Settings (environment variables)
