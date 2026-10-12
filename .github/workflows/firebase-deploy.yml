@@ -1,0 +1,32 @@
+# Deploys the Firebase version on every push to main.
+# Setup (GitHub repo → Settings → Secrets and variables → Actions):
+#   variable FIREBASE_PROJECT_ID    your Firebase project id
+#   secret   FIREBASE_SERVICE_ACCOUNT  JSON key of a service account with the Firebase Admin role
+#   variable FIREBASE_DEPLOY_ONLY   optional; set to "hosting,firestore,functions" once the project is on Blaze
+name: Deploy to Firebase
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  deploy:
+    if: ${{ vars.FIREBASE_PROJECT_ID != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: python3 build.py
+      - run: npm install --omit=dev
+        working-directory: firebase/functions
+      - name: Deploy
+        working-directory: firebase
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ONLY: ${{ vars.FIREBASE_DEPLOY_ONLY || 'hosting,firestore' }}
+          PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx -y firebase-tools@13 deploy --project "$PROJECT" --only "$ONLY" --non-interactive

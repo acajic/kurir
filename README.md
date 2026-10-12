@@ -2,7 +2,16 @@
 
 Share where and when you're driving. Paste a Google Maps directions link (start, destination, time), add a comment, and everyone sees the drive on a map, sorted by day.
 
-## Run
+## Firebase (recommended if you already use it)
+
+The `firebase/` folder is a complete Firebase project: Hosting serves the page, Firestore stores drives (live for everyone), anonymous sign-in decides who may delete a drive, and the map, location zoom and routes run in the browser.
+
+1. In the Firebase console: create or pick a project, add a Firestore database, and turn on Authentication → Sign-in method → Anonymous.
+2. Deploy from your machine: `python3 build.py && cd firebase && npx firebase-tools deploy --project YOUR_PROJECT_ID --only hosting,firestore`
+3. Short maps.app.goo.gl links need the `resolve` Cloud Function, which needs the Blaze plan. On Blaze, deploy with `--only hosting,firestore,functions` (run `npm install` in `firebase/functions` first). Without it, long links still work.
+4. Optional automatic deploys: `.github/workflows/firebase-deploy.yml` deploys on every push to main once you add the variable `FIREBASE_PROJECT_ID` and the secret `FIREBASE_SERVICE_ACCOUNT` in the GitHub repo settings.
+
+## Run your own server instead
 
 - `npm start` runs it on port 8080. Needs Node 22.13+ and has no dependencies. Data lives in SQLite at `$DATA_DIR/fetch.db` (default `./data`).
 - Docker: `docker build -t fetch . && docker run -p 8080:8080 -v fetch-data:/data fetch`
@@ -20,6 +29,6 @@ Share where and when you're driving. Paste a Google Maps directions link (start,
 
 - `server.js`: API (drives, routes, short-link resolving, municipality lookup), live updates over server-sent events, static files.
 - `src/`: page sources shared by both versions. `parse.js` reads Google Maps directions links.
-- `python3 build.py` regenerates `public/index.html` (hosted app) and `artifact/fetch.html` (the claude.ai Artifact version with a schematic map). Edit `src/`, never the generated files.
+- `python3 build.py` regenerates `public/index.html` (Node server), `firebase/public/index.html` (Firebase) and `artifact/fetch.html` (the claude.ai Artifact with a schematic map). Edit `src/`, never the generated files.
 
 Google links carry the places and time but not the line Google drew, so the map shows the fastest driving route between the same points.

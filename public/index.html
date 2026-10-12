@@ -223,7 +223,7 @@ aside.side { min-height: 0; display: grid; grid-template-rows: auto auto 1fr; bo
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
-window.FETCH_ROUTE_URL = "/api/route";
+window.FETCH_ROUTE = pts => fetch("/api/route?pts=" + encodeURIComponent(pts)).then(r => r.ok ? r.json() : null);
 // ---- Google Maps directions link parsing ----
 const ZAGREB_TZ = 'Europe/Zagreb';
 
@@ -473,9 +473,8 @@ if (typeof module !== 'undefined') module.exports = { parseMapsLink, zagrebWallT
       youLayer.clearLayers();
       L.circleMarker(p, { radius: 7, color: tok('--panel'), weight: 3, fillColor: tok('--accent'), fillOpacity: 1 }).addTo(youLayer).bindTooltip('You are here');
       try {
-        const r = await fetch('/api/municipality?lat=' + p[0] + '&lon=' + p[1]);
-        const j = await r.json();
-        if (r.ok && j.bounds) { map.fitBounds(j.bounds, { padding: [16, 16], maxZoom: 14 }); showPlace(j.name); return; }
+        const j = await municipalityLookup(p[0], p[1]);
+        if (j && j.bounds) { map.fitBounds(j.bounds, { padding: [16, 16], maxZoom: 14 }); showPlace(j.name); return; }
       } catch (e) {}
       map.setView(p, 12);
     }, () => {
@@ -541,14 +540,14 @@ if (typeof module !== 'undefined') module.exports = { parseMapsLink, zagrebWallT
       requestRoute(d);
     }
   }
-  // Street-level route preview, only where a routing endpoint exists (the hosted app sets FETCH_ROUTE_URL).
+  // Street-level route preview, only where the page provides a router (window.FETCH_ROUTE(pointsKey) -> {route, distanceM, durationS}).
   function routeKey(d) { return [d.fromLL].concat(d.stopsLL || [], [d.toLL]).map(p => p.join(',')).join(';'); }
   function requestRoute(d) {
-    if (!window.FETCH_ROUTE_URL) return;
+    if (!window.FETCH_ROUTE) return;
     const key = routeKey(d);
     if (d.routeKey === key) return;
     d.routeKey = key; d.route = null;
-    fetch(window.FETCH_ROUTE_URL + '?pts=' + encodeURIComponent(key)).then(r => r.ok ? r.json() : null).then(j => {
+    window.FETCH_ROUTE(key).then(j => {
       if (!j || state.draft !== d || d.routeKey !== key) return;
       d.route = j.route; d.distanceM = j.distanceM; d.durationS = j.durationS;
       renderDraftOnMap();
@@ -708,6 +707,7 @@ if (typeof module !== 'undefined') module.exports = { parseMapsLink, zagrebWallT
       link: (d.parsed.link || d.raw || '').slice(0, 4000), comment: d.comment.trim().slice(0, 500),
       createdMs: Date.now()
     };
+    if (d.route) Object.assign(doc, { route: d.route, distanceM: d.distanceM, durationS: d.durationS });
     const btn = $('d-save'); btn.disabled = true; btn.textContent = 'Sharing…';
     try {
       if (state.db) {
@@ -941,6 +941,10 @@ if (typeof module !== 'undefined') module.exports = { parseMapsLink, zagrebWallT
     renderMapDrives();
   }
 
+  async function municipalityLookup(lat, lon) {
+    const r = await fetch('/api/municipality?lat=' + lat + '&lon=' + lon);
+    return r.ok ? r.json() : null;
+  }
   // REST + server-sent events, shaped like the small slice of the Artifact db API the page uses.
   function restDb(cid) {
     const listeners = { drives: new Set(), replies: new Set() };

@@ -202,14 +202,14 @@
       requestRoute(d);
     }
   }
-  // Street-level route preview, only where a routing endpoint exists (the hosted app sets FETCH_ROUTE_URL).
+  // Street-level route preview, only where the page provides a router (window.FETCH_ROUTE(pointsKey) -> {route, distanceM, durationS}).
   function routeKey(d) { return [d.fromLL].concat(d.stopsLL || [], [d.toLL]).map(p => p.join(',')).join(';'); }
   function requestRoute(d) {
-    if (!window.FETCH_ROUTE_URL) return;
+    if (!window.FETCH_ROUTE) return;
     const key = routeKey(d);
     if (d.routeKey === key) return;
     d.routeKey = key; d.route = null;
-    fetch(window.FETCH_ROUTE_URL + '?pts=' + encodeURIComponent(key)).then(r => r.ok ? r.json() : null).then(j => {
+    window.FETCH_ROUTE(key).then(j => {
       if (!j || state.draft !== d || d.routeKey !== key) return;
       d.route = j.route; d.distanceM = j.distanceM; d.durationS = j.durationS;
       renderDraftOnMap();
@@ -357,6 +357,7 @@
       link: (d.parsed.link || d.raw || '').slice(0, 4000), comment: d.comment.trim().slice(0, 500),
       createdMs: Date.now()
     };
+    if (d.route) Object.assign(doc, { route: d.route, distanceM: d.distanceM, durationS: d.durationS });
     const btn = $('d-save'); btn.disabled = true; btn.textContent = 'Sharing…';
     try {
       if (state.db) {
