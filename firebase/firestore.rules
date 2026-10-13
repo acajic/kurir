@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Everyone can see drives. Signed-in (anonymous) visitors can share one,
+    // and only the browser that shared a drive can delete it.
+    match /drives/{id} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
+        && request.resource.data.from is string && request.resource.data.from.size() > 0 && request.resource.data.from.size() <= 200
+        && request.resource.data.to is string && request.resource.data.to.size() > 0 && request.resource.data.to.size() <= 200
+        && request.resource.data.whenMs is number
+        && request.resource.data.get('comment', '') is string && request.resource.data.get('comment', '').size() <= 500
+        && request.resource.data.get('link', '') is string && request.resource.data.get('link', '').size() <= 4000;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+  }
+}

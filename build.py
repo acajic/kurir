@@ -1,6 +1,7 @@
-# Builds both versions of Fetch from src/:
-#   public/index.html   - the hosted app served by server.js
-#   artifact/fetch.html - the claude.ai Artifact (schematic map, Artifact db)
+# Builds every version of Fetch from src/ (edit src/, never the generated files):
+#   public/index.html          - the Node server version (server.js)
+#   firebase/public/index.html - the Firebase version (Hosting + Firestore)
+#   artifact/fetch.html        - the claude.ai Artifact (schematic map, Artifact db)
 import os, re
 here = os.path.dirname(os.path.abspath(__file__))
 src = lambda n: open(os.path.join(here, 'src', n), encoding='utf-8').read()
@@ -41,9 +42,8 @@ MAP = r'''  const FALLBACK = [45.807, 15.975];   // used only when location is u
       youLayer.clearLayers();
       L.circleMarker(p, { radius: 7, color: tok('--panel'), weight: 3, fillColor: tok('--accent'), fillOpacity: 1 }).addTo(youLayer).bindTooltip('You are here');
       try {
-        const r = await fetch('/api/municipality?lat=' + p[0] + '&lon=' + p[1]);
-        const j = await r.json();
-        if (r.ok && j.bounds) { map.fitBounds(j.bounds, { padding: [16, 16], maxZoom: 14 }); showPlace(j.name); return; }
+        const j = await municipalityLookup(p[0], p[1]);
+        if (j && j.bounds) { map.fitBounds(j.bounds, { padding: [16, 16], maxZoom: 14 }); showPlace(j.name); return; }
       } catch (e) {}
       map.setView(p, 12);
     }, () => {
@@ -78,7 +78,7 @@ app = app.replace("""      notice = '<div class="notice warn">This is a short li
         : '<div class="notice warn">Couldn\\'t open this short link. Open it yourself, copy the long link from the address bar and paste that here, or type the places below.</div>';""", 1)
 assert 'Opening the short link' in app and 'function applyParsed' in app
 
-BOOT = r'''  // REST + server-sent events, shaped like the small slice of the Artifact db API the page uses.
+BOOT_SERVER = r'''  // REST + server-sent events, shaped like the small slice of the Artifact db API the page uses.
   function restDb(cid) {
     const listeners = { drives: new Set(), replies: new Set() };
     const es = new EventSource('/api/events');
@@ -131,18 +131,39 @@ BOOT = r'''  // REST + server-sent events, shaped like the small slice of the Ar
   locate(false);
 })();
 '''
-app = cut(app, "  // ---------- boot ----------", "})();\n", BOOT)
-# First drive load: if location never arrived, frame the drives instead.
-app = app.replace("        state.dbReady = true;\n        renderAll(false);\n      }, err", "        const first = !state.dbReady;\n        state.dbReady = true;\n        renderAll(false);\n        if (first) setTimeout(fallbackView, 1500);\n      }, err", 1)
-assert 'fallbackView, 1500' in app
 
-t = tpl.replace('<style>\n/*LEAFLET_CSS*/\n</style>\n', '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">\n')
-assert 'unpkg.com/leaflet' in t
-t = t.replace('Shared drives around Zagreb', 'Shared drives near you')
-t = t.replace('<div class="map-note">Schematic map of Zagreb. Open a drive for the exact route in Google Maps.</div>',
-  '<div class="map-note" id="map-note" hidden></div>\n      <button class="locate" id="locate" type="button">Zoom to my area</button>')
-t = t.replace('<span class="eyebrow">Fetch · Zagreb</span>', '<span class="eyebrow">Fetch</span>')
-extra_css = '''
+MUNI_SERVER = r"""  async function municipalityLookup(lat, lon) {
+    const r = await fetch('/api/municipality?lat=' + lat + '&lon=' + lon);
+    return r.ok ? r.json() : null;
+  }
+"""
+ROUTE_SERVER = 'window.FETCH_ROUTE = pts => fetch("/api/route?pts=" + encodeURIComponent(pts)).then(r => r.ok ? r.json() : null);\n'
+
+def hosted_page(app, boot, muni, route, head_scripts=''):
+    a = cut(app, "  // ---------- boot ----------", "})();\n", muni + boot)
+    # First drive load: if location never arrived, frame the drives instead.
+    a = a.replace("        state.dbReady = true;\n        renderAll(false);\n      }, err", "        const first = !state.dbReady;\n        state.dbReady = true;\n        renderAll(false);\n        if (first) setTimeout(fallbackView, 1500);\n      }, err", 1)
+    assert 'fallbackView, 1500' in a
+    t = tpl.replace('<style>\n/*LEAFLET_CSS*/\n</style>\n', '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">\n')
+    assert 'unpkg.com/leaflet' in t
+    t = t.replace('Shared drives around Zagreb', 'Shared drives near you')
+    t = t.replace('<div class="map-note">Schematic map of Zagreb. Open a drive for the exact route in Google Maps.</div>',
+      '<div class="map-note" id="map-note" hidden></div>\n      <button class="locate" id="locate" type="button">Zoom to my area</button>')
+    t = t.replace('<span class="eyebrow">Fetch · Zagreb</span>', '<span class="eyebrow">Fetch</span>')
+    t = t.replace('@media (prefers-reduced-motion', EXTRA_CSS + '@media (prefers-reduced-motion', 1)
+    leaflet = '<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>'
+    assert leaflet in t
+    t = t.replace(leaflet, head_scripts + leaflet)
+    t = t.replace('/*PARSE_JS*/', route + parse).replace('/*APP_JS*/', a)
+    return ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
+            '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>\n</head>\n<body>\n' + t + '\n</body>\n</html>\n')
+
+def write(rel, text):
+    path = os.path.join(here, rel)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, 'w', encoding='utf-8').write(text)
+
+EXTRA_CSS = '''
 :root { --tile-filter: none; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tile-filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9); } }
 :root[data-theme="dark"] { --tile-filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9); }
@@ -152,10 +173,71 @@ extra_css = '''
 .leaflet-control-attribution { background: var(--panel) !important; color: var(--muted) !important; }
 .leaflet-control-attribution a { color: var(--accent) !important; }
 '''
-t = t.replace('@media (prefers-reduced-motion', extra_css + '@media (prefers-reduced-motion', 1)
-t = t.replace('/*PARSE_JS*/', 'window.FETCH_ROUTE_URL = "/api/route";\n' + parse).replace('/*APP_JS*/', app)
-page = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
-        '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>\n</head>\n<body>\n' + t + '\n</body>\n</html>\n')
-os.makedirs(os.path.join(here, 'public'), exist_ok=True)
-open(os.path.join(here, 'public', 'index.html'), 'w', encoding='utf-8').write(page)
-print('built artifact/fetch.html and public/index.html')
+
+write('public/index.html', hosted_page(app, BOOT_SERVER, MUNI_SERVER, ROUTE_SERVER))
+
+# ---------- Firebase (Hosting + Firestore + one Cloud Function for short links) ----------
+FB = '10.14.1'
+FB_SCRIPTS = ''.join('<script src="/__/firebase/%s/firebase-%s-compat.js"></script>\n' % (FB, m) for m in ('app', 'auth', 'firestore')) + '<script src="/__/firebase/init.js"></script>\n'
+MUNI_FB = r"""  async function municipalityLookup(lat, lon) {
+    const r = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&addressdetails=1&lat=' + lat + '&lon=' + lon, { headers: { 'accept-language': 'hr,en' } });
+    if (!r.ok) return null;
+    const j = await r.json(), a = j.address || {}, bb = (j.boundingbox || []).map(Number);
+    return { name: a.city || a.town || a.municipality || a.village || j.name || '', bounds: bb.length === 4 ? [[bb[0], bb[2]], [bb[1], bb[3]]] : null };
+  }
+"""
+ROUTE_FB = r"""window.FETCH_ROUTE = pts => {
+  const c = pts.split(';').map(p => p.split(',').reverse().join(',')).join(';');
+  return fetch('https://router.project-osrm.org/route/v1/driving/' + c + '?overview=full&geometries=geojson').then(r => r.ok ? r.json() : null).then(j => {
+    const b = j && j.routes && j.routes[0];
+    if (!b) return null;
+    let line = b.geometry.coordinates.map(([x, y]) => [+y.toFixed(5), +x.toFixed(5)]);
+    if (line.length > 1500) { const st = Math.ceil(line.length / 1500); line = line.filter((_, i) => i % st === 0 || i === line.length - 1); }
+    return { route: line, distanceM: Math.round(b.distance), durationS: Math.round(b.duration) };
+  });
+};
+"""
+BOOT_FB = r"""  // Firestore, shaped like the small slice of the Artifact db API the page uses.
+  // Firestore has no nested arrays, so point lists are stored as maps and strings.
+  function fbDb() {
+    const fs = firebase.firestore();
+    const enc = d => {
+      const o = Object.assign({}, d);
+      if (o.stopsLL) o.stopsLL = o.stopsLL.map(p => ({ lat: p[0], lng: p[1] }));
+      if (o.route) o.route = o.route.map(p => p[0] + ',' + p[1]).join(';');
+      return o;
+    };
+    const dec = o => {
+      const d = Object.assign({}, o);
+      if (Array.isArray(d.stopsLL)) d.stopsLL = d.stopsLL.map(p => [p.lat, p.lng]);
+      if (typeof d.route === 'string') d.route = d.route.split(';').map(p => p.split(',').map(Number));
+      return d;
+    };
+    const wrap = q => ({
+      where: (f, op, v) => wrap(q.where(f, op, v)),
+      orderBy: (f, dir) => wrap(q.orderBy(f, dir)),
+      limit: n => wrap(q.limit(n)),
+      onSnapshot: (next, err) => q.onSnapshot(snap => next({ docs: snap.docs.map(s => { const d = dec(s.data()); return { id: s.id, data: () => d }; }) }), err),
+      add: data => q.add(enc(data)),
+      doc: id => q.doc(id)
+    });
+    return { collection: name => wrap(fs.collection(name)) };
+  }
+
+  // ---------- boot ----------
+  renderMe();
+  if (!state.name) showGate();
+  renderAll();
+  setInterval(() => { if (!state.draft) renderList(); }, 60000);
+  firebase.auth().onAuthStateChanged(u => {
+    if (!u) return;
+    state.uid = u.uid;
+    if (!state.db) { state.db = fbDb(); ensureWindow(); }
+    renderList();
+  });
+  firebase.auth().signInAnonymously().catch(() => toast('Couldn\'t connect to the drive list. Reload the page to try again.'));
+  locate(false);
+})();
+"""
+write('firebase/public/index.html', hosted_page(app, BOOT_FB, MUNI_FB, ROUTE_FB, FB_SCRIPTS))
+print('built artifact/fetch.html, public/index.html and firebase/public/index.html')
