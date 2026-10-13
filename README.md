@@ -6,10 +6,12 @@ Share where and when you're driving. Paste a Google Maps directions link (start,
 
 The `firebase/` folder is a complete Firebase project: Hosting serves the page, Firestore stores drives (live for everyone), anonymous sign-in decides who may delete a drive, and the map, location zoom and routes run in the browser.
 
-1. In the Firebase console: create or pick a project, add a Firestore database, and turn on Authentication → Sign-in method → Anonymous.
-2. Deploy from your machine: `python3 build.py && cd firebase && npx firebase-tools deploy --project YOUR_PROJECT_ID --only hosting,firestore`
+The project is `kurir-bd9c9` (set in `firebase/.firebaserc`).
+
+1. In the Firebase console: add a Firestore database, and turn on Authentication → Sign-in method → Anonymous.
+2. Deploy from your machine: `python3 build.py && cd firebase && npx firebase-tools login && npx firebase-tools deploy --only hosting,firestore`
 3. Short maps.app.goo.gl links need the `resolve` Cloud Function, which needs the Blaze plan. On Blaze, deploy with `--only hosting,firestore,functions` (run `npm install` in `firebase/functions` first). Without it, long links still work.
-4. Optional automatic deploys: `.github/workflows/firebase-deploy.yml` deploys on every push to main once you add the variable `FIREBASE_PROJECT_ID` and the secret `FIREBASE_SERVICE_ACCOUNT` in the GitHub repo settings.
+4. Optional automatic deploys: `.github/workflows/firebase-deploy.yml` deploys on every push to main once you add the variable `FIREBASE_PROJECT_ID` (`kurir-bd9c9`) and the secret `FIREBASE_SERVICE_ACCOUNT` in the GitHub repo settings.
 
 ## Run your own server instead
 
